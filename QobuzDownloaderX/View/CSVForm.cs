@@ -70,6 +70,7 @@ namespace QobuzDownloaderX
         private async void confirm_button_ClickAsync(object sender, EventArgs e)
         {
             confirm_button.Enabled = false;
+            browse_button.Enabled = false;
 
             using (TextFieldParser csvParser = new TextFieldParser(selectedPath))
             {
@@ -110,8 +111,6 @@ namespace QobuzDownloaderX
 
                         string webPlayerUrl = $"{Globals.WEBPLAYER_BASE_URL}/track/{firstTrack.Id}";
 
-                        textBox2.Text = webPlayerUrl;
-
                         url.Add(webPlayerUrl);
                     }
 
@@ -133,6 +132,7 @@ namespace QobuzDownloaderX
                     {
                         await Globals.QbdlxForm.StartLinkItemDownloadAsync(url[downloadCount]);
                         downloadCount++;
+                        textBox2.Text = "Tracks Downloaded: " + downloadCount.ToString();
                     }
                     else
                     {
@@ -142,10 +142,13 @@ namespace QobuzDownloaderX
                     if (downloadCount == url.Count)
                     {
                         downloadEnd = true;
+                        
                     }
                 }
                     
                 confirm_button.Enabled = true;
+                browse_button.Enabled = true;
+                textBox2.Text = textBox2.Text + " !!! FINISHED !!! ";
             }
         }
 
