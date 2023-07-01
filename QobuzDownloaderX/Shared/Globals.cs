@@ -18,6 +18,7 @@ namespace QobuzDownloaderX.Shared
         public static QobuzDownloaderX QbdlxForm { get; set; }
         public static AboutForm AboutForm { get; set; }
         public static SearchForm SearchForm { get; set; }
+        public static CSVForm CSVForm { get; set; }
 
         // Login
         public static Login Login { get; set; }

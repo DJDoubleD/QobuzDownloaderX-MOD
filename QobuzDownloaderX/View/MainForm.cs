@@ -171,6 +171,30 @@ namespace QobuzDownloaderX
             debuggingEvents(sender, e);
         }
 
+
+        public void wait(int milliseconds)
+        {
+            var timer1 = new System.Windows.Forms.Timer();
+            if (milliseconds == 0 || milliseconds < 0) return;
+
+            // Console.WriteLine("start wait timer");
+            timer1.Interval = milliseconds;
+            timer1.Enabled = true;
+            timer1.Start();
+
+            timer1.Tick += (s, e) =>
+            {
+                timer1.Enabled = false;
+                timer1.Stop();
+                // Console.WriteLine("stop wait timer");
+            };
+
+            while (timer1.Enabled)
+            {
+                Application.DoEvents();
+            }
+        }
+
         public void UpdateDownloadSpeedLabel(string speed)
         {
             downloadSpeedLabel.Invoke(new Action(() => downloadSpeedLabel.Text = speed));
@@ -201,6 +225,22 @@ namespace QobuzDownloaderX
         {
             Globals.SearchForm.ShowDialog(this);
         }
+
+        private void OpenCSV_Click(object sender, EventArgs e)
+        {
+            CSVForm CSVForm1 = new CSVForm();
+            CSVForm1.ShowDialog(this);
+        }
+
+        public int IsBusy()
+        {
+            if (downloadManager.Buzy)
+            {
+                return 1;
+            }
+            else { return 0; }
+        }
+
 
         private async void DownloadButton_Click(object sender, EventArgs e)
         {
@@ -810,5 +850,7 @@ namespace QobuzDownloaderX
         {
             downloadManager.CheckIfStreamable = streamableCheckbox.Checked;
         }
+
+        
     }
 }

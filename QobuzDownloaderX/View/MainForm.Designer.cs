@@ -112,6 +112,7 @@
             this.testURLBox = new System.Windows.Forms.TextBox();
             this.openLogFolderButton = new System.Windows.Forms.Button();
             this.downloadSpeedLabel = new System.Windows.Forms.Label();
+            this.csv_button = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.albumArtPicBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.logoBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.profilePictureBox)).BeginInit();
@@ -1130,12 +1131,27 @@
             this.downloadSpeedLabel.Text = "Idle";
             this.downloadSpeedLabel.TextAlign = System.Drawing.ContentAlignment.TopRight;
             // 
+            // csv_button
+            // 
+            this.csv_button.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(112)))), ((int)(((byte)(239)))));
+            this.csv_button.FlatAppearance.BorderSize = 0;
+            this.csv_button.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.csv_button.ForeColor = System.Drawing.Color.White;
+            this.csv_button.Location = new System.Drawing.Point(597, 144);
+            this.csv_button.Name = "csv_button";
+            this.csv_button.Size = new System.Drawing.Size(120, 23);
+            this.csv_button.TabIndex = 110;
+            this.csv_button.Text = "Open CSV";
+            this.csv_button.UseVisualStyleBackColor = false;
+            this.csv_button.Click += new System.EventHandler(this.OpenCSV_Click);
+            // 
             // QobuzDownloaderX
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(20)))), ((int)(((byte)(20)))), ((int)(((byte)(20)))));
             this.ClientSize = new System.Drawing.Size(938, 632);
+            this.Controls.Add(this.csv_button);
             this.Controls.Add(this.downloadSpeedLabel);
             this.Controls.Add(this.openLogFolderButton);
             this.Controls.Add(this.filenameTempSelect);
@@ -1320,6 +1336,7 @@
         private System.Windows.Forms.TextBox testURLBox;
         private System.Windows.Forms.Button openLogFolderButton;
         public System.Windows.Forms.Label downloadSpeedLabel;
+        private System.Windows.Forms.Button csv_button;
     }
 }
 
