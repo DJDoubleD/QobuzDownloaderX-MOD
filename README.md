@@ -27,7 +27,7 @@ Additions:
 
 # Disclaimer & Legal
 
-I will not be responsible for how you use QBDLX-MOD++ (QobuzDownloaderX-MOD).
+I will not be responsible for how you use QBDLX-MOD++ (QobuzDownloaderX-MOD++).
 
 This program ***DOES NOT*** include...
 
