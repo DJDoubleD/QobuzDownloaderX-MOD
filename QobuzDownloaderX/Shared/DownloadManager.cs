@@ -331,7 +331,8 @@ namespace QobuzDownloaderX.Shared
             var tracksPageOffset = qobuzAlbum.Tracks.Offset ?? 0;
             var tracksLoaded = qobuzAlbum.Tracks.Items?.Count ?? 0;
 
-            for (var i = 0; i < tracksLoaded; i++)
+            var i = 0
+			while (i < tracksLoaded)
             {
                 // User requested task cancellation!
                 cancellationToken.ThrowIfCancellationRequested();
@@ -346,6 +347,8 @@ namespace QobuzDownloaderX.Shared
                 {
                     noErrorsOccurred = false;
                 }
+				
+				i++;
 
                 if (i != tracksLoaded - 1 || tracksTotal <= i + tracksPageOffset)
                 {
@@ -369,7 +372,7 @@ namespace QobuzDownloaderX.Shared
                 }
 
                 // Reset 0-based counter for looping next batch of tracks
-                i = -1;
+                i = 0;
                 tracksLoaded = qobuzAlbum.Tracks.Items?.Count ?? 0;
             }
 
