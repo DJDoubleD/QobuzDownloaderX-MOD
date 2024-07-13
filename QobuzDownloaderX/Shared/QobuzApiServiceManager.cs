@@ -17,10 +17,10 @@ namespace QobuzDownloaderX.Shared
             return apiService;
         }
 
-        public static void Initialize(string appId, string userAuthToken)
+        public static void Initialize(string appId, string appSecret)
         {
             apiService?.Dispose();
-            apiService = new QobuzApiService(appId, userAuthToken);
+            apiService = new QobuzApiService(appId, appSecret);
         }
 
         public static void Initialize()
