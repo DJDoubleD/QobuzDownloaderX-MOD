@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: windows-2022
 
     steps:
     - name: Checkout
@@ -23,7 +23,7 @@ jobs:
 
     - name: Setup NuGet
       uses: nuget/setup-nuget@v1.2.0
-    
+
     - name: Restore NuGet Packages
       run: nuget restore QobuzDownloaderX.sln
 
@@ -31,8 +31,16 @@ jobs:
       run: |
         msbuild.exe QobuzDownloaderX.sln /p:platform="Any CPU" /p:configuration="Release"
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v3.1.2
+    - name: Zip Artifacts
+      run: |
+        cd QobuzDownloaderX/bin/Release
+        7z a -tzip QobuzDownloaderX.zip *
+        cd ../../..
+
+    - name: Release Artifact
+      uses: softprops/action-gh-release@v2
       with:
-        name: QBDLX-MOD_${{ github.event.release.tag_name }}
-        path: QobuzDownloaderX\bin\Release
+        generate_release_notes: true
+        make_latest: true
+        files: |
+          QobuzDownloaderX/bin/Release/QobuzDownloaderX.zip

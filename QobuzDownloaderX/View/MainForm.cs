@@ -6,6 +6,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -256,25 +257,44 @@ namespace QobuzDownloaderX
                 return;
             }
 
-            // Get download item type and ID from url
-            DownloadItem downloadItem = DownloadUrlParser.ParseDownloadUrl(downloadLink);
+            string[] downloadLinks = null;
+            
+            // Split the download text into numerous strings based on the newline character based on OS
+            // This is a workaround considering text from any platform can be formatted in any way, but will be somewhat correct
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) { 
+                downloadLinks = downloadLink.Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+            } else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
+                downloadLinks = downloadLink.Split("\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+            } else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+                downloadLinks = downloadLink.Split("\r".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+            }
 
-            // If download item could not be parsed, abort
-            if (downloadItem.IsEmpty())
-            {
-                logger.ClearUiLogComponent();
-                output.Invoke(new Action(() => output.AppendText("URL not understood. Is there a typo?")));
+            if (downloadLinks is null) {
                 return;
             }
 
-            // If, for some reason, a download is still buzy, do nothing
-            if (downloadManager.Buzy)
+            foreach(string link in downloadLinks)
             {
-                return;
-            }
+                // Get download item type and ID from url
+                DownloadItem downloadItem = DownloadUrlParser.ParseDownloadUrl(link);
 
-            // Run the StartDownloadItemTaskAsync method on a background thread & Wait for the task to complete
-            await Task.Run(() => downloadManager.StartDownloadItemTaskAsync(downloadItem, UpdateControlsDownloadStart, UpdateControlsDownloadEnd));
+                // If download item could not be parsed, abort
+                if (downloadItem.IsEmpty())
+                {
+                    logger.ClearUiLogComponent();
+                    output.Invoke(new Action(() => output.AppendText("URL not understood. Is there a typo?")));
+                    continue;
+                }
+
+                // If, for some reason, a download is still buzy, do nothing
+                if (downloadManager.Buzy)
+                {
+                    continue;
+                }
+
+                // Run the StartDownloadItemTaskAsync method on a background thread & Wait for the task to complete
+                await Task.Run(() => downloadManager.StartDownloadItemTaskAsync(downloadItem, UpdateControlsDownloadStart, UpdateControlsDownloadEnd));
+            }
         }
 
         public void UpdateControlsDownloadStart()
