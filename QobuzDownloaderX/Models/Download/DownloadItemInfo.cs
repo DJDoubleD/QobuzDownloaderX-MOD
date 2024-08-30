@@ -183,7 +183,7 @@ namespace QobuzDownloaderX.Models
         {
             ClearTrackTaggingInfo();
 
-            PerformersParser performersParser = new PerformersParser(qobuzTrack.Performers);
+            PerformersParser performersParser = new(qobuzTrack.Performers);
 
             PerformerNames = performersParser.GetPerformersWithRole(InvolvedPersonRoleType.MainArtist);
             string[] featuredArtists = performersParser.GetPerformersWithRole(InvolvedPersonRoleType.FeaturedArtist);

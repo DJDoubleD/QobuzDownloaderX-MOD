@@ -17,7 +17,7 @@ namespace QobuzDownloaderX
     public partial class SearchForm : HeadlessForm
     {
         private readonly string errorLog = Path.Combine(Globals.LoggingDir, "Search_Errors.log");
-        TableLayoutPanel resultsTableLayoutPanel;
+        private TableLayoutPanel resultsTableLayoutPanel;
 
         public SearchForm()
         {
@@ -79,7 +79,7 @@ namespace QobuzDownloaderX
             ResizeControlForText(ErrorSavedMesage, 5);
             resultsTableLayoutPanel.Controls.Add(ErrorSavedMesage, 0, 1);
 
-            List<string> errorLines = new List<string> { ex.Message };
+            List<string> errorLines = new() { ex.Message };
 
             switch (ex)
             {
@@ -247,7 +247,7 @@ namespace QobuzDownloaderX
 
         private FlowLayoutPanel CreateTitlePanel(TextBox titleTextBox, bool isExplicit)
         {
-            FlowLayoutPanel titlePanel = new FlowLayoutPanel
+            FlowLayoutPanel titlePanel = new()
             {
                 AutoSize = true,
                 Margin = new Padding(0),
@@ -259,9 +259,9 @@ namespace QobuzDownloaderX
             if (isExplicit)
             {
                 System.Windows.Forms.Label explicitLabel = CreateLabel("E", Color.FromArgb(75, 75, 75), Color.OrangeRed, FontManager.CreateFont("Hanken Grotesk ExtraBold", 8, FontStyle.Bold), BorderStyle.None, new Padding(5, 0, 0, 0), AnchorStyles.None);
-                
+
                 // Add tooltip for "Explicit"
-                ToolTip toolTip = new ToolTip();
+                ToolTip toolTip = new();
                 toolTip.SetToolTip(explicitLabel, "Explicit");
 
                 // Resize titleTextBox to make room for "Explicit"
@@ -275,7 +275,7 @@ namespace QobuzDownloaderX
 
         private FlowLayoutPanel CreateLinksPanel(Color rowColor, LinkLabel webLink, LinkLabel storeLink)
         {
-            FlowLayoutPanel linksPanel = new FlowLayoutPanel
+            FlowLayoutPanel linksPanel = new()
             {
                 BackColor = rowColor,
                 AutoSize = true,
@@ -291,7 +291,7 @@ namespace QobuzDownloaderX
 
         private TableLayoutPanel CreateReleaseInfoPanel(Color rowColor, FlowLayoutPanel titlePanel, TextBox durationTextBox, TextBox artistTextBox, TextBox releaseDateTextBox, TextBox tracks, LinkLabel webLink, LinkLabel storeLink)
         {
-            TableLayoutPanel releaseInfoColumnPanel = new TableLayoutPanel
+            TableLayoutPanel releaseInfoColumnPanel = new()
             {
                 Dock = DockStyle.Fill,
                 BackColor = rowColor,
@@ -338,7 +338,7 @@ namespace QobuzDownloaderX
                 };
             }
 
-            TableLayoutPanel qualityColumnPanel = new TableLayoutPanel
+            TableLayoutPanel qualityColumnPanel = new()
             {
                 ColumnCount = 1,
                 RowCount = hiResIcon == null ? 1 : 2,
@@ -356,7 +356,7 @@ namespace QobuzDownloaderX
 
         private Button CreateDownloadButton(string webPlayerUrl)
         {
-            Button downloadButton = new Button
+            Button downloadButton = new()
             {
                 Text = "Download",
                 BackColor = Color.FromArgb(0, 112, 239),
@@ -384,12 +384,12 @@ namespace QobuzDownloaderX
                 Globals.QbdlxForm.downloadUrl.Invoke(new Action(() => Globals.QbdlxForm.downloadUrl.Text = webPlayerUrl));
                 this.Close();
                 // Start download from the main form
-                await Globals.QbdlxForm.StartLinkItemDownloadAsync(webPlayerUrl);
+                Globals.QbdlxForm.StartLinkItemDownload(webPlayerUrl);
             }
             catch (Exception ex)
             {
                 // Handle the exception (e.g., log it, show an error message, etc.)
-                List<string> errorLines = new List<string>
+                List<string> errorLines = new()
                 {
                     $"Error starting download for {webPlayerUrl}",
                     ex.ToString(),
@@ -465,15 +465,17 @@ namespace QobuzDownloaderX
             linkLabel.LinkClicked += (sender, e) => Process.Start(url);
 
             // Add tooltip with the URL
-            ToolTip toolTip = new ToolTip();
+            ToolTip toolTip = new();
             toolTip.SetToolTip(linkLabel, url);
 
             // Add context menu with "Copy URL" option
-            ContextMenu contextMenu = new ContextMenu();
-            MenuItem copyUrlItem = new MenuItem("Copy URL");
+            // TODO ContextMenu wird nicht mehr unterstützt. Verwenden Sie stattdessen ContextMenuStrip. Weitere Informationen finden Sie unter: https://docs.microsoft.com/en-us/dotnet/core/compatibility/winforms#removed-controls
+            ContextMenuStrip contextMenu = new();
+            // TODO MenuItem wird nicht mehr unterstützt. Verwenden Sie stattdessen ToolStripMenuItem. Weitere Informationen finden Sie unter: https://docs.microsoft.com/en-us/dotnet/core/compatibility/winforms#removed-controls
+            ToolStripMenuItem copyUrlItem = new("Copy URL");
             copyUrlItem.Click += (sender, e) => CopyToClipboard(url);
-            contextMenu.MenuItems.Add(copyUrlItem);
-            linkLabel.ContextMenu = contextMenu;
+            contextMenu.Items.Add(copyUrlItem);
+            linkLabel.ContextMenuStrip = contextMenu;
         }
 
         private void ResizeControlForText(Control control, int extraMargin = 0, int fixedWidth = 0)
@@ -564,7 +566,7 @@ namespace QobuzDownloaderX
         {
             Task.Run(() =>
             {
-                Thread thread = new Thread(() => Clipboard.SetText(text));
+                Thread thread = new(() => Clipboard.SetText(text));
                 thread.SetApartmentState(ApartmentState.STA);
                 thread.Start();
                 thread.Join();
