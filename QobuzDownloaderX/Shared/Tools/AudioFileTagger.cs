@@ -1,5 +1,6 @@
 ﻿using QobuzDownloaderX.Models;
 using System;
+using System.IO;
 using TagLib;
 
 namespace QobuzDownloaderX.Shared
@@ -27,6 +28,11 @@ namespace QobuzDownloaderX.Shared
                     // Saving cover art to file(s)
                     if (Globals.TaggingOptions.WriteCoverImageTag)
                     {
+                        int maxRetries = 2; // Define the maximum number of retries
+                        int retryDelay = 500; // Define the delay in milliseconds between retries
+                        int attempt = 0;
+
+                    retry:
                         try
                         {
                             // Define cover art to use for MP3 file(s)
@@ -41,6 +47,17 @@ namespace QobuzDownloaderX.Shared
                             // Save cover art to MP3 file.
                             tfile.Tag.Pictures = new TagLib.IPicture[1] { pic };
                             tfile.Save();
+                        }
+                        catch (IOException)
+                        {
+                            attempt++;
+                            if (attempt >= maxRetries)
+                            {
+                                logger.AddDownloadLogErrorLine($"Cover art tag failed, .jpg still exists?...{Environment.NewLine}", true, true);
+                                break;
+                            }
+                            System.Threading.Thread.Sleep(retryDelay);
+                            goto retry;
                         }
                         catch
                         {
@@ -155,6 +172,11 @@ namespace QobuzDownloaderX.Shared
                     // Saving cover art to file(s)
                     if (Globals.TaggingOptions.WriteCoverImageTag)
                     {
+                        int maxRetries = 2; // Define the maximum number of retries
+                        int retryDelay = 500; // Define the delay in milliseconds between retries
+                        int attempt = 0;
+
+                    retry:
                         try
                         {
                             // Define cover art to use for FLAC file(s)
@@ -169,6 +191,17 @@ namespace QobuzDownloaderX.Shared
                             // Save cover art to FLAC file.
                             tfile.Tag.Pictures = new TagLib.IPicture[1] { pic };
                             tfile.Save();
+                        }
+                        catch (IOException)
+                        {
+                            attempt++;
+                            if (attempt >= maxRetries)
+                            {
+                                logger.AddDownloadLogErrorLine($"Cover art tag failed, .jpg still exists?...{Environment.NewLine}", true, true);
+                                break;
+                            }
+                            System.Threading.Thread.Sleep(retryDelay);
+                            goto retry;
                         }
                         catch
                         {
@@ -245,7 +278,7 @@ namespace QobuzDownloaderX.Shared
                     if (Globals.TaggingOptions.WriteInvolvedPeopleTag) { custom.SetField("INVOLVEDPEOPLE", fileInfo.InvolvedPeople); }
 
                     // Release Year tag (The "tfile.Tag.Year" field actually writes to the DATE tag, so use custom tag)
-                    if (Globals.TaggingOptions.WriteReleaseYearTag) { custom.SetField("YEAR", fileInfo.ReleaseDate.Substring(0, 4)); }
+                    if (Globals.TaggingOptions.WriteReleaseYearTag) { custom.SetField("YEAR", fileInfo.ReleaseDate?[..4] ?? "0000"); }
 
                     // Release Date tag
                     if (Globals.TaggingOptions.WriteReleaseDateTag) { custom.SetField("DATE", fileInfo.ReleaseDate); }

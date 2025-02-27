@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -32,6 +33,38 @@ namespace QobuzDownloaderX
             ControlTools.SetDoubleBuffered(containerScrollPanel);
 
             searchTypeSelect.SelectedItem = "Album";
+        }
+
+        private void DownloadAllButton_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                downloadAllButton.Enabled = false;
+                List<string> downloadLinks = [];
+                for (int row = 0; row < resultsTableLayoutPanel.RowCount; row++)
+                {
+                    if (resultsTableLayoutPanel.GetControlFromPosition(3, row) is Button downloadButton)
+                    {
+                        // Get the download link from the button's Tag property
+                        string downloadLink = downloadButton.Tag?.ToString();
+                        if (!string.IsNullOrEmpty(downloadLink))
+                            downloadLinks.Add(downloadLink);
+                    }
+                }
+                Globals.QbdlxForm.downloadUrl.Invoke(new Action(() => Globals.QbdlxForm.downloadUrl.Text = downloadLinks.FirstOrDefault()));
+                this.Close();
+                Globals.QbdlxForm.StartLinkItemDownload([.. downloadLinks]);
+            }
+            catch (Exception ex)
+            {
+                List<string> errorLines = ["Error starting download for all items", ex.ToString(), ""];
+                System.IO.File.AppendAllLines(errorLog, errorLines);
+                MessageBox.Show("Error starting download for all items\nlog saved to " + errorLog, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                downloadAllButton.Enabled = true;
+            }
         }
 
         private void ResetResultsTableLayoutPanel()
@@ -61,6 +94,8 @@ namespace QobuzDownloaderX
             resultsTableLayoutPanel.CellPaint += ResultsTableLayoutPanel_CellPaint;
 
             containerScrollPanel.Controls.Add(resultsTableLayoutPanel);
+            downloadAllButton.Visible = false;
+            downloadAllButton.Enabled = false;
         }
 
         private void ShowAndLogSearchResultError(Exception ex)
@@ -133,6 +168,12 @@ namespace QobuzDownloaderX
                 HiRes = album.Hires.GetValueOrDefault(),
                 TrackCount = album.TracksCount.GetValueOrDefault()
             });
+            // Show and enable the "Download All" button if there are rows
+            if (resultsTableLayoutPanel.RowCount > 0)
+            {
+                downloadAllButton.Visible = true;
+                downloadAllButton.Enabled = true;
+            }
         }
 
         private void Fill_TrackResultsTablePanel(SearchResult searchResult)
@@ -150,6 +191,12 @@ namespace QobuzDownloaderX
                 ReleaseDate = track.Album.ReleaseDateOriginal.GetValueOrDefault().ToString("yyyy-MM-dd"),
                 HiRes = track.Hires.GetValueOrDefault()
             });
+            // Show and enable the "Download All" button if there are rows
+            if (resultsTableLayoutPanel.RowCount > 0)
+            {
+                downloadAllButton.Visible = true;
+                downloadAllButton.Enabled = true;
+            }
         }
 
         private void FillResultsTablePanel<T>(IEnumerable<T> items, Func<T, SearchResultRow> createSearchResultRow)
@@ -259,7 +306,7 @@ namespace QobuzDownloaderX
             if (isExplicit)
             {
                 System.Windows.Forms.Label explicitLabel = CreateLabel("E", Color.FromArgb(75, 75, 75), Color.OrangeRed, FontManager.CreateFont("Hanken Grotesk ExtraBold", 8, FontStyle.Bold), BorderStyle.None, new Padding(5, 0, 0, 0), AnchorStyles.None);
-                
+
                 // Add tooltip for "Explicit"
                 ToolTip toolTip = new ToolTip();
                 toolTip.SetToolTip(explicitLabel, "Explicit");
@@ -365,6 +412,7 @@ namespace QobuzDownloaderX
                 UseVisualStyleBackColor = false,
                 Height = 23,
                 Anchor = AnchorStyles.None,
+                Tag = webPlayerUrl,
                 TextAlign = ContentAlignment.MiddleCenter
             };
             downloadButton.FlatAppearance.BorderSize = 0;
@@ -384,7 +432,7 @@ namespace QobuzDownloaderX
                 Globals.QbdlxForm.downloadUrl.Invoke(new Action(() => Globals.QbdlxForm.downloadUrl.Text = webPlayerUrl));
                 this.Close();
                 // Start download from the main form
-                await Globals.QbdlxForm.StartLinkItemDownloadAsync(webPlayerUrl);
+                Globals.QbdlxForm.StartLinkItemDownload(webPlayerUrl);
             }
             catch (Exception ex)
             {
@@ -469,11 +517,11 @@ namespace QobuzDownloaderX
             toolTip.SetToolTip(linkLabel, url);
 
             // Add context menu with "Copy URL" option
-            ContextMenu contextMenu = new ContextMenu();
-            MenuItem copyUrlItem = new MenuItem("Copy URL");
+            ContextMenuStrip contextMenu = new ContextMenuStrip();
+            ToolStripMenuItem copyUrlItem = new ToolStripMenuItem("Copy URL");
             copyUrlItem.Click += (sender, e) => CopyToClipboard(url);
-            contextMenu.MenuItems.Add(copyUrlItem);
-            linkLabel.ContextMenu = contextMenu;
+            contextMenu.Items.Add(copyUrlItem);
+            linkLabel.ContextMenuStrip = contextMenu;
         }
 
         private void ResizeControlForText(Control control, int extraMargin = 0, int fixedWidth = 0)

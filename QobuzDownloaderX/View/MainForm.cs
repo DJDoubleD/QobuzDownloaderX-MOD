@@ -1,13 +1,17 @@
-﻿using QobuzDownloaderX.Models;
+﻿using DownloadAssistant.Requests;
+using QobuzDownloaderX.Models;
 using QobuzDownloaderX.Properties;
 using QobuzDownloaderX.Shared;
 using QobuzDownloaderX.View;
+using Requests;
+using Requests.Options;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace QobuzDownloaderX
@@ -15,22 +19,26 @@ namespace QobuzDownloaderX
     public partial class QobuzDownloaderX : HeadlessForm
     {
         private readonly DownloadLogger logger;
-        private readonly DownloadManager downloadManager;
 
         public QobuzDownloaderX()
         {
+            // this.AutoSize = true;
             InitializeComponent();
-
-            logger = new DownloadLogger(output, UpdateControlsDownloadEnd);
+            this.Height = 750;
+            this.Width = 1086;
+            logger = new DownloadLogger(output, "MainForm");
+            RequestHandler.MainRequestHandlers[0].StaticDegreeOfParallelism = 2;
             // Remove previous download error log
             logger.RemovePreviousErrorLog();
-
-            downloadManager = new DownloadManager(logger, UpdateAlbumTagsUI, UpdateDownloadSpeedLabel)
+            _requests.SpeedReporter.Timeout = 1000;
+            _requests.SpeedReporter.SpeedChanged += (obj, speed) =>
             {
-                CheckIfStreamable = streamableCheckbox.Checked
+                double speedInMB = ((double)speed) / (1024 * 1024);
+                UpdateDownloadSpeedLabel($"{speedInMB:F2} MB/s");
             };
         }
 
+        private ExtendedContainer<DownloadRequest> _requests = [];
         public string DownloadLogPath { get; set; }
 
         public int DevClickEggThingValue { get; set; }
@@ -45,7 +53,6 @@ namespace QobuzDownloaderX
         private void MainForm_Load(object sender, EventArgs e)
         {
             // Set main form size on launch and bring to center.
-            this.Height = 533;
             this.CenterToScreen();
 
             // Grab profile image
@@ -78,7 +85,8 @@ namespace QobuzDownloaderX
                 output.Invoke(new Action(() => output.AppendText("Active Family sub-account, unknown End Date \r\n")));
                 output.Invoke(new Action(() => output.AppendText("Credential Label - " + Globals.Login.User.Credential.Label + "\r\n")));
                 output.Invoke(new Action(() => output.AppendText("==========================\r\n\r\n")));
-            } else
+            }
+            else
             {
                 output.Invoke(new Action(() => output.AppendText("No active subscriptions, only sample downloads possible!\r\n")));
                 output.Invoke(new Action(() => output.AppendText("==========================\r\n\r\n")));
@@ -225,13 +233,8 @@ namespace QobuzDownloaderX
 
         private async void DownloadButton_Click(object sender, EventArgs e)
         {
-            if (!downloadManager.IsBuzy)
-            {
-                await StartLinkItemDownloadAsync(downloadUrl.Text);
-            } else
-            {
-                downloadManager.StopDownloadTask();
-            }
+            StartLinkItemDownload(downloadUrl.Text);
+            _requests.Remove(_requests.Where(x => x.State is RequestState.Failed or RequestState.Compleated or RequestState.Cancelled)?.ToArray());
         }
 
         private async void DownloadUrl_KeyDown(object sender, KeyEventArgs e)
@@ -241,11 +244,11 @@ namespace QobuzDownloaderX
                 e.Handled = true;
                 e.SuppressKeyPress = true;
 
-                await StartLinkItemDownloadAsync(downloadUrl.Text);
+                StartLinkItemDownload(downloadUrl.Text);
             }
         }
 
-        public async Task StartLinkItemDownloadAsync(string downloadLink)
+        public void StartLinkItemDownload(params string[] downloadLinks)
         {
             // Check if there's no selected path.
             if (string.IsNullOrEmpty(Settings.Default.savedFolder))
@@ -255,26 +258,59 @@ namespace QobuzDownloaderX
                 output.Invoke(new Action(() => output.AppendText($"No path has been set! Remember to Choose a Folder!{Environment.NewLine}")));
                 return;
             }
-
-            // Get download item type and ID from url
-            DownloadItem downloadItem = DownloadUrlParser.ParseDownloadUrl(downloadLink);
-
-            // If download item could not be parsed, abort
-            if (downloadItem.IsEmpty())
+            if (downloadLinks.All(string.IsNullOrWhiteSpace))
             {
-                logger.ClearUiLogComponent();
-                output.Invoke(new Action(() => output.AppendText("URL not understood. Is there a typo?")));
+                if (_requests.State == RequestState.Paused && _requests.Length > 0)
+                {
+                    output.Invoke(new Action(() => output.AppendText("Starting all paused downloads.\r\n")));
+                    _requests.Start();
+                }
+                else if (_requests.State == RequestState.Running)
+                    _requests.ToList().ForEach(x => x.Start());
+                else
+                    output.Invoke(new Action(() => output.AppendText("The download links were empty.\r\n")));
                 return;
             }
 
-            // If, for some reason, a download is still buzy, do nothing
-            if (downloadManager.IsBuzy)
+            List<DownloadItem> downloadItems = new(downloadLinks.Length);
+            foreach (string downloadLink in downloadLinks)
             {
-                return;
+                var request = _requests.FirstOrDefault(x => x.StartOptions.DownloadItem.Url == downloadLink);
+
+                switch (request)
+                {
+                    case null:
+                        downloadItems.Add(DownloadUrlParser.ParseDownloadUrl(downloadLink));
+                        break;
+                    case var r when r.State == RequestState.Paused:
+                        r.Start();
+                        output.Invoke(new Action(() => output.AppendText($"Restarting download for URL: {downloadLink}\r\n")));
+                        break;
+                    default:
+                        output.Invoke(new Action(() => output.AppendText($"URL: {downloadLink} is already being downloaded.\r\n")));
+                        break;
+                }
             }
+
+            foreach (var downloadItem in downloadItems)
+                if (downloadItem.IsEmpty())
+                    output.Invoke(new Action(() => output.AppendText($"URL >{downloadItem.Url}< not understood. Is there a typo?\r\n")));
+
+                else
+                    _requests.Add(new DownloadRequest(new()
+                    {
+                        DownloadItem = downloadItem,
+                        UpdateAlbumTagsUi = UpdateAlbumTagsUI,
+                        CheckIfStreamable = streamableCheckbox.Checked,
+                        Handler = RequestHandler.MainRequestHandlers[0],
+                        RequestStarted = (_) => UpdateControlsDownloadStart(),
+                        RequestCancelled = (_) => UpdateControlsDownloadEnd(),
+                        RequestFailed = (_, _) => UpdateControlsDownloadEnd(),
+                        RequestCompleated = (_, _) => UpdateControlsDownloadEnd(),
+                        Logger = new DownloadLogger(output, $"Download_Log_Item_{downloadItem.Id}_Time_{DateTime.Now:yyyy-MM-dd_HH.mm.ss.fff}")
+                    }));
 
             // Run the StartDownloadItemTaskAsync method on a background thread & Wait for the task to complete
-            await Task.Run(() => downloadManager.StartDownloadItemTaskAsync(downloadItem, UpdateControlsDownloadStart, UpdateControlsDownloadEnd));
         }
 
         public void UpdateControlsDownloadStart()
@@ -283,16 +319,14 @@ namespace QobuzDownloaderX
             flacLowCheckbox.Invoke(new Action(() => flacLowCheckbox.AutoCheck = false));
             flacMidCheckbox.Invoke(new Action(() => flacMidCheckbox.AutoCheck = false));
             flacHighCheckbox.Invoke(new Action(() => flacHighCheckbox.AutoCheck = false));
-
-            downloadUrl.Invoke(new Action(() => downloadUrl.Enabled = false));
-
+            //downloadUrl.Invoke(new Action(() => downloadUrl.Enabled = false));
             selectFolderButton.Invoke(new Action(() => selectFolderButton.Enabled = false));
-            openSearchButton.Invoke(new Action(() => openSearchButton.Enabled = false));
+            //openSearchButton.Invoke(new Action(() => openSearchButton.Enabled = false));
 
-            downloadButton.Invoke(new Action(() => {
-                downloadButton.Text = "Stop Download";
-                downloadButton.BackColor = BuzyButtonBackColor;
-            }));
+            //downloadButton.Invoke(new Action(() => {
+            //    downloadButton.Text = "Stop Download";
+            //    downloadButton.BackColor = BuzyButtonBackColor;
+            //}));
         }
 
         public void UpdateControlsDownloadEnd()
@@ -307,7 +341,8 @@ namespace QobuzDownloaderX
             selectFolderButton.Invoke(new Action(() => selectFolderButton.Enabled = true));
             openSearchButton.Invoke(new Action(() => openSearchButton.Enabled = true));
 
-            downloadButton.Invoke(new Action(() => {
+            downloadButton.Invoke(new Action(() =>
+            {
                 downloadButton.Text = "Download";
                 downloadButton.BackColor = ReadyButtonBackColor;
             }));
@@ -343,15 +378,44 @@ namespace QobuzDownloaderX
             {
                 // If selected path doesn't exist, create it. (Will be ignored if it does)
                 System.IO.Directory.CreateDirectory(folderBrowserDialog.SelectedPath);
+
                 // Open selected folder
-                Process.Start(@folderBrowserDialog.SelectedPath);
+                try
+                {
+                    ProcessStartInfo startInfo = new()
+                    {
+                        FileName = folderBrowserDialog.SelectedPath,
+                        UseShellExecute = true,
+                        WorkingDirectory = folderBrowserDialog.SelectedPath
+                    };
+                    Process.Start(startInfo);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"An error occurred: {ex.Message}", "ERROR",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 
         private void OpenLogFolderButton_Click(object sender, EventArgs e)
         {
             // Open log folder. Folder should exist here so no extra check
-            Process.Start(@Globals.LoggingDir);
+            try
+            {
+                ProcessStartInfo startInfo = new()
+                {
+                    FileName = Globals.LoggingDir,
+                    UseShellExecute = true,
+                    WorkingDirectory = Globals.LoggingDir
+                };
+                Process.Start(startInfo);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred: {ex.Message}", "ERROR",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         // Update UI for downloading album
@@ -373,18 +437,21 @@ namespace QobuzDownloaderX
 
         private void tagsLabel_Click(object sender, EventArgs e)
         {
-            if (this.Height == 533)
+
+            if (this.Height == 610)
             {
-                //New Height
-                this.Height = 660;
+                // New Height
+                this.Height = 750;
                 tagsLabel.Text = "🠉 Choose which tags to save (click me) 🠉";
             }
-            else if (this.Height == 660)
+            else if (this.Height == 750)
             {
-                //New Height
-                this.Height = 533;
+                // New Height
+                this.Height = 610;
                 tagsLabel.Text = "🠋 Choose which tags to save (click me) 🠋";
             }
+
+            Debug.WriteLine($"After setting Height: {this.Height}");
         }
 
         private void AlbumCheckbox_CheckedChanged(object sender, EventArgs e)
@@ -903,7 +970,36 @@ namespace QobuzDownloaderX
 
         private void StreamableCheckbox_CheckedChanged(object sender, EventArgs e)
         {
-            downloadManager.CheckIfStreamable = streamableCheckbox.Checked;
+            // Not implemented
         }
+
+        private void stopButton_Click(object sender, EventArgs e)
+        {
+            if (downloadUrl.Text == "cancel")
+            {
+                _requests.Cancel();
+                output.AppendText("Canceling all downloads.\r\n");
+                _requests = new();
+            }
+            else if (string.IsNullOrWhiteSpace(downloadUrl.Text))
+            {
+                _requests.Pause();
+                output.AppendText("Pausing all downloads.\r\n");
+            }
+            else
+            {
+                var request = _requests.FirstOrDefault(x => x.StartOptions.DownloadItem.Url == downloadUrl.Text);
+                if (request != null)
+                {
+                    request.Pause();
+                    output.AppendText($"Pausing download for URL: {downloadUrl.Text}\r\n");
+                }
+                else
+                {
+                    output.AppendText($"No active download found to pause URL: {downloadUrl.Text}\r\n");
+                }
+            }
+        }
+
     }
 }
